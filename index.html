@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PixelSAV — Calculadora de Projetores</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+:root {
+  --bg:#0a0a0f; --surface:#12121a; --surface2:#1a1a26; --border:#252535;
+  --accent:#7c3aed; --accent2:#a855f7; --glow:rgba(124,58,237,.2);
+  --text:#e8e8f0; --muted:#7878a0; --dim:#3a3a5a;
+  --c1:#7c3aed; --c2:#0ea5e9; --c3:#10b981;
+  --green:#10b981; --yellow:#f59e0b; --red:#ef4444;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;line-height:1.6;min-height:100vh}
+
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 32px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.logo{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:20px}.logo span{color:var(--accent2)}
+.logo-sub{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px}
+
+.container{max-width:1300px;margin:0 auto;padding:28px 20px;display:grid;grid-template-columns:360px 1fr;gap:22px}
+
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.ph{padding:14px 18px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.ph h2{font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted)}
+.pi{width:28px;height:28px;border-radius:8px;background:var(--glow);display:flex;align-items:center;justify-content:center;font-size:14px}
+.pb{padding:18px}
+
+label{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px}
+input[type=number],select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:9px 13px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;transition:border-color .2s,box-shadow .2s;appearance:none}
+input[type=number]:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--glow)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237878a0' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;padding-right:32px;cursor:pointer}
+
+.fg{margin-bottom:14px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.div{height:1px;background:var(--border);margin:14px 0}
+.tip{font-size:10px;color:var(--dim);margin-top:4px}
+
+.surf-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:14px}
+.sb{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 6px;cursor:pointer;text-align:center;transition:all .2s;color:var(--muted);font-size:11px;font-weight:600}
+.sb .ic{font-size:18px;display:block;margin-bottom:3px}
+.sb:hover{border-color:var(--accent);color:var(--text)}
+.sb.active{border-color:var(--accent);background:var(--glow);color:var(--accent2)}
+
+.dim-box{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:13px;margin-bottom:14px}
+.dim-title{font-size:10px;font-weight:700;text-transform:uppercase;color:var(--accent2);letter-spacing:.5px;margin-bottom:10px}
+
+.pill-row{display:flex;flex-wrap:wrap;gap:6px}
+.pill{padding:4px 11px;border-radius:20px;border:1px solid var(--border);background:var(--bg);font-size:11px;color:var(--muted);cursor:pointer;transition:all .2s;font-weight:500}
+.pill:hover{border-color:var(--accent);color:var(--text)}
+.pill.active{border-color:var(--accent);background:var(--glow);color:var(--accent2);font-weight:700}
+
+.range-row{display:flex;align-items:center;gap:10px}
+input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer}
+.rv{font-size:13px;font-weight:700;color:var(--accent2);min-width:36px;text-align:right}
+
+.btn-calc{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:12px;color:#fff;font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:700;cursor:pointer;transition:opacity .2s,transform .1s;margin-top:8px;letter-spacing:.2px}
+.btn-calc:hover{opacity:.9;transform:translateY(-1px)}
+.btn-calc:active{transform:translateY(0)}
+
+/* RIGHT */
+.right-col{display:flex;flex-direction:column;gap:18px}
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:380px;color:var(--dim);text-align:center;gap:10px}
+.empty .eic{font-size:52px;opacity:.3}
+
+/* RESULT CARDS */
+.res-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}
+.rc{border-radius:14px;padding:18px;border:1px solid;position:relative;overflow:hidden;transition:transform .2s}
+.rc:hover{transform:translateY(-2px)}
+.rc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.rc.c1{border-color:rgba(124,58,237,.4);background:rgba(124,58,237,.05)}.rc.c1::before{background:var(--c1)}
+.rc.c2{border-color:rgba(14,165,233,.4);background:rgba(14,165,233,.05)}.rc.c2::before{background:var(--c2)}
+.rc.c3{border-color:rgba(16,185,129,.4);background:rgba(16,185,129,.05)}.rc.c3::before{background:var(--c3)}
+
+.rc-rank{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.c1 .rc-rank{color:var(--c1)}.c2 .rc-rank{color:var(--c2)}.c3 .rc-rank{color:var(--c3)}
+.rc-model{font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;margin-bottom:2px;line-height:1.3}
+.rc-brand{font-size:10px;color:var(--muted);margin-bottom:12px}
+.rc-big{font-family:'Space Grotesk',sans-serif;font-size:48px;font-weight:700;line-height:1}
+.c1 .rc-big{color:var(--c1)}.c2 .rc-big{color:var(--c2)}.c3 .rc-big{color:var(--c3)}
+.rc-unit{font-size:12px;color:var(--muted);margin-bottom:12px}
+.st{display:flex;justify-content:space-between;font-size:11px;padding:5px 0;border-bottom:1px solid var(--border)}
+.st:last-child{border-bottom:none}
+.sk{color:var(--muted)}.sv{font-weight:600}
+.tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:800;letter-spacing:.3px}
+.tok{background:rgba(16,185,129,.15);color:var(--green)}
+.twarn{background:rgba(245,158,11,.15);color:var(--yellow)}
+.terr{background:rgba(239,68,68,.15);color:var(--red)}
+
+/* WARN BOX */
+.warn-box{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--yellow);display:none}
+
+/* DETAIL TABLE */
+.dt{width:100%;border-collapse:collapse;font-size:11px}
+.dt th{text-align:left;padding:7px 10px;color:var(--muted);font-weight:700;text-transform:uppercase;font-size:9px;letter-spacing:.5px;border-bottom:1px solid var(--border);background:var(--surface2);white-space:nowrap}
+.dt td{padding:9px 10px;border-bottom:1px solid rgba(37,37,53,.6);vertical-align:middle}
+.dt tr:last-child td{border-bottom:none}
+.dt tr:hover td{background:rgba(255,255,255,.02)}
+
+/* CROQUI */
+.croqui-panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.ctabs{display:flex;background:var(--surface2);border-bottom:1px solid var(--border)}
+.ctab{flex:1;padding:11px;text-align:center;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;border:none;background:none;transition:all .2s;text-transform:uppercase;letter-spacing:.3px}
+.ctab.active{color:var(--accent2);border-bottom:2px solid var(--accent2)}
+.cview{padding:16px;background:#0c0c14;min-height:300px;display:flex;align-items:center;justify-content:center}
+.legend{display:flex;flex-wrap:wrap;gap:10px;padding:10px 16px;border-top:1px solid var(--border)}
+.li{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted)}
+.ld{width:10px;height:10px;border-radius:50%}
+
+/* EXPORT BTN */
+.btn-exp{display:flex;align-items:center;gap:7px;padding:9px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif}
+.btn-exp:hover{border-color:var(--accent);color:var(--accent2)}
+
+.rh{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.rt{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:700}
+
+.stitle{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.stitle::after{content:'';flex:1;height:1px;background:var(--border)}
+
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+@media(max-width:900px){.container{grid-template-columns:1fr}.res-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">Pixel<span>SAV</span></div>
+    <div class="logo-sub">Calculadora de Projetores</div>
+  </div>
+  <div style="font-size:10px;color:var(--dim)">v2.0 · 38 modelos</div>
+</header>
+
+<div class="container">
+<!-- ========== LEFT: INPUTS ========== -->
+<div>
+  <div class="panel">
+    <div class="ph"><div class="pi">🎯</div><h2>Dados do Projeto</h2></div>
+    <div class="pb">
+
+      <!-- SURFACE TYPE -->
+      <div class="fg">
+        <label>Tipo de Superfície</label>
+        <div class="surf-grid">
+          <button class="sb active" data-type="parede" onclick="selSurf(this)"><span class="ic">🏢</span>Parede / Fachada</button>
+          <button class="sb" data-type="sala" onclick="selSurf(this)"><span class="ic">🏠</span>Sala Imersiva</button>
+          <button class="sb" data-type="dome" onclick="selSurf(this)"><span class="ic">🌐</span>Dome 360°</button>
+          <button class="sb" data-type="cilindro" onclick="selSurf(this)"><span class="ic">🛢️</span>Cilíndrico</button>
+          <button class="sb" data-type="aviao" onclick="selSurf(this)"><span class="ic">✈️</span>Avião</button>
+          <button class="sb" data-type="piso" onclick="selSurf(this)"><span class="ic">⬛</span>Piso</button>
+        </div>
+      </div>
+
+      <!-- DIMENSIONS -->
+      <div class="dim-box">
+        <div class="dim-title" id="dim-title">📐 Dimensões</div>
+        <div id="dim-fields"></div>
+      </div>
+
+      <!-- SALA COVERAGE -->
+      <div id="sala-cov" style="display:none" class="fg">
+        <label>Cobertura da Sala</label>
+        <div class="pill-row">
+          <div class="pill active" data-cov="paredes" onclick="selCov(this)">Só Paredes</div>
+          <div class="pill" data-cov="paredes-chao" onclick="selCov(this)">Paredes + Chão</div>
+          <div class="pill" data-cov="paredes-teto" onclick="selCov(this)">Paredes + Teto</div>
+          <div class="pill" data-cov="tudo" onclick="selCov(this)">Tudo</div>
+        </div>
+      </div>
+
+      <div class="div"></div>
+
+      <!-- LIGHT ENV -->
+      <div class="fg">
+        <label>Condição de Luz Ambiente</label>
+        <select id="light-env">
+          <option value="escuro">🌑 Ambiente Escuro (sala fechada)</option>
+          <option value="meia">🌗 Meia Luz (alguma iluminação)</option>
+          <option value="iluminado">💡 Bem Iluminado (interior)</option>
+          <option value="externo-noite">🌃 Externo — Noite</option>
+          <option value="externo-cidade">🌆 Externo — Cidade c/ iluminação</option>
+          <option value="externo-festival">🎪 Externo — Festival / Show</option>
+        </select>
+      </div>
+
+      <!-- SURFACE MATERIAL -->
+      <div class="fg">
+        <label>Material / Reflectância da Superfície</label>
+        <select id="gain-sel" onchange="document.getElementById('gain-custom').style.display=this.value==='custom'?'block':'none'">
+          <option value="1.0">Tela branca matte — gain 1.0</option>
+          <option value="0.85">Tela cinza / gain screen — 0.85</option>
+          <option value="0.75">Parede branca / reboco claro — 0.75</option>
+          <option value="0.55">Concreto aparente — 0.55</option>
+          <option value="0.40">Tijolo / fachada texturizada — 0.40</option>
+          <option value="0.45">Madeira — 0.45</option>
+          <option value="0.70">Avião (fuselagem branca) — 0.70</option>
+          <option value="0.90">Dome (tela especial) — 0.90</option>
+          <option value="0.25">Superfície escura — 0.25</option>
+          <option value="custom">Personalizado...</option>
+        </select>
+        <div id="gain-custom" style="display:none;margin-top:7px">
+          <input type="number" id="gain-val" min="0.1" max="2" step="0.05" value="0.7" placeholder="ex: 0.7">
+        </div>
+      </div>
+
+      <div class="div"></div>
+
+      <!-- DISTANCE -->
+      <div class="fg">
+        <label>Distância disponível para instalar os projetores (m)</label>
+        <input type="number" id="dist" min="0.1" max="500" step="0.5" placeholder="ex: 15 — deixe vazio para externo">
+        <div class="tip">Deixe vazio se for área externa — a calculadora informa a distância mínima necessária</div>
+      </div>
+
+      <!-- BLEND -->
+      <div class="fg">
+        <label>Blend / Sobreposição entre projetores</label>
+        <div class="range-row">
+          <input type="range" id="blend" min="0" max="30" value="20" step="5" oninput="document.getElementById('blendv').textContent=this.value+'%'">
+          <span class="rv" id="blendv">20%</span>
+        </div>
+      </div>
+
+      <button class="btn-calc" onclick="calculate()">⚡ Calcular Melhores Projetores</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== RIGHT: RESULTS ========== -->
+<div class="right-col" id="right-col">
+  <div class="panel" style="min-height:380px">
+    <div class="pb">
+      <div class="empty" id="empty">
+        <div class="eic">📡</div>
+        <div style="font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;color:var(--muted)">Preencha os dados do projeto</div>
+        <p style="font-size:12px;max-width:220px;color:var(--dim)">A calculadora vai selecionar automaticamente os 3 melhores projetores do catálogo PixelSAV</p>
+      </div>
+
+      <div id="results" style="display:none">
+        <div class="rh">
+          <div class="rt" id="res-title">Resultado</div>
+          <button class="btn-exp" onclick="exportPDF()">📄 Exportar PDF</button>
+        </div>
+
+        <!-- SUMMARY BOX -->
+        <div id="summary-box" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:12px;display:flex;gap:24px;flex-wrap:wrap"></div>
+
+        <!-- WARN -->
+        <div class="warn-box" id="warn-box"></div>
+
+        <!-- RESULT CARDS -->
+        <div class="res-grid" id="res-grid"></div>
+
+        <!-- DETAIL TABLE -->
+        <div class="stitle">Comparativo Técnico</div>
+        <div style="overflow-x:auto">
+          <table class="dt" id="det-table">
+            <thead>
+              <tr>
+                <th>#</th><th>Modelo</th><th>Lumens/unid</th><th>Qtd</th>
+                <th>Total Lumens</th><th>Lux superfície</th>
+                <th>Throw / Distância</th><th>Tipo lente</th>
+                <th>cm/pixel</th><th>Grid</th><th>Luz fonte</th>
+              </tr>
+            </thead>
+            <tbody id="det-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CROQUI -->
+  <div class="croqui-panel" id="croqui-panel" style="display:none">
+    <div class="ph" style="justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:10px"><div class="pi">🗺️</div><h2>Croqui de Instalação</h2></div>
+      <div style="display:flex">
+        <button class="ctab active" id="tab-top" onclick="switchView('top')">Vista de Cima</button>
+        <button class="ctab" id="tab-side" onclick="switchView('side')">Vista Lateral</button>
+      </div>
+    </div>
+    <div class="cview"><svg id="croqui-svg" viewBox="0 0 720 360" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:720px;height:auto"></svg></div>
+    <div class="legend" id="croqui-legend"></div>
+  </div>
+</div>
+</div>
+
+<script>
+// ============================================================
+// CATALOG — 38 projetores
+// ============================================================
+const CATALOG = [
+  {id:"griffyn-4k50",brand:"Christie",model:"Griffyn 4K50-RGB",lm:50000,tr:1.4,res:"4096x2160",tech:"3-Chip DLP",light:"Laser RGB",tier:5},
+  {id:"jazz-dwu2400",brand:"Christie",model:"Jazz DWU2400-JS",lm:23750,tr:1.4,res:"1920x1200",tech:"1-Chip DLP",light:"Laser Phosphor",tier:4},
+  {id:"cp2000xb",brand:"Christie",model:"CP2000-XB",lm:18000,tr:1.6,res:"2048x1080",tech:"1-Chip DLP",light:"Xenon Lamp",tier:3},
+  {id:"dwu500s",brand:"Christie",model:"DUW500S",lm:5000,tr:0.75,res:"1920x1200",tech:"1-Chip DLP",light:"Laser Phosphor",tier:2},
+  {id:"captiva-dhd410s",brand:"Christie",model:"Captiva DHD410S",lm:4100,tr:0.65,res:"1920x1080",tech:"1-Chip DLP",light:"Laser",tier:2},
+  {id:"sp4k-25c",brand:"Barco",model:"SP4K-25C",lm:24000,tr:1.4,res:"4096x2160",tech:"3-Chip DLP",light:"Laser RGB",tier:4},
+  {id:"g62-w9",brand:"Barco",model:"G62-W9",lm:9000,tr:1.4,res:"1920x1200",tech:"1-Chip DLP",light:"Laser Phosphor",tier:3},
+  {id:"g60-w7",brand:"Barco",model:"G60-W7",lm:7000,tr:1.4,res:"1920x1200",tech:"1-Chip DLP",light:"Laser Phosphor",tier:2},
+  {id:"pan-rz34k",brand:"Panasonic",model:"PT-RZ34K",lm:30500,tr:1.4,res:"1920x1200",tech:"3-Chip DLP",light:"Laser (RB)",tier:4},
+  {id:"pan-mz20k",brand:"Panasonic",model:"PT-MZ20KLBU7",lm:20000,tr:1.4,res:"1920x1200",tech:"3LCD",light:"Laser",tier:3},
+  {id:"pan-rz21k",brand:"Panasonic",model:"PT-RZ21K",lm:20000,tr:1.4,res:"1920x1200",tech:"3-Chip DLP",light:"Laser Phosphor",tier:3},
+  {id:"pan-dz21k",brand:"Panasonic",model:"PT-DZ21K",lm:20000,tr:1.4,res:"1920x1200",tech:"3-Chip DLP",light:"Lamp",tier:3},
+  {id:"pan-rz120",brand:"Panasonic",model:"PT-RZ120",lm:12000,tr:1.5,res:"1920x1200",tech:"1-Chip DLP",light:"Laser",tier:3},
+  {id:"pan-rcq10",brand:"Panasonic",model:"PT-RCQ10",lm:10000,tr:1.4,res:"2560x1600",tech:"1-Chip DLP",light:"Laser",tier:3},
+  {id:"pan-rz990",brand:"Panasonic",model:"PT-RZ990",lm:9400,tr:1.5,res:"1920x1200",tech:"1-Chip DLP",light:"Laser",tier:2},
+  {id:"pan-rz970",brand:"Panasonic",model:"PT-RZ970U",lm:8500,tr:1.5,res:"1920x1200",tech:"1-Chip DLP",light:"Laser",tier:2},
+  {id:"pan-rz770",brand:"Panasonic",model:"PT-RZ770",lm:7000,tr:1.5,res:"1920x1200",tech:"1-Chip DLP",light:"Laser",tier:2},
+  {id:"pan-rz660",brand:"Panasonic",model:"PT-RZ660",lm:6200,tr:1.5,res:"1920x1200",tech:"1-Chip DLP",light:"Laser",tier:2},
+  {id:"pan-vmz71",brand:"Panasonic",model:"PT-VMZ71",lm:7000,tr:1.5,res:"1920x1200",tech:"3LCD",light:"Laser",tier:2},
+  {id:"pan-vmz61",brand:"Panasonic",model:"PT-VMZ61",lm:6200,tr:1.5,res:"1920x1200",tech:"3LCD",light:"Laser",tier:2},
+  {id:"pan-vmz50",brand:"Panasonic",model:"PT-VMZ50",lm:5000,tr:1.5,res:"1920x1200",tech:"3LCD",light:"Laser",tier:1},
+  {id:"epson-pq2220b",brand:"Epson",model:"EB-PQ2220B",lm:20000,tr:1.4,res:"3840x2160",tech:"3LCD",light:"Laser",tier:3},
+  {id:"epson-l730u",brand:"Epson",model:"EB-L730U",lm:7000,tr:1.45,res:"1920x1200",tech:"3LCD",light:"Laser",tier:2},
+  {id:"epson-bl1485fi",brand:"Epson",model:"BrightLink 1485FI",lm:5000,tr:0.35,res:"1920x1080",tech:"3LCD",light:"Lamp",tier:1},
+  {id:"opt-zu920tst",brand:"Optoma",model:"ZU920TST",lm:8200,tr:0.70,res:"1920x1200",tech:"1-Chip DLP",light:"Laser",tier:2},
+  {id:"opt-zk708t",brand:"Optoma",model:"ZK708T",lm:7000,tr:1.4,res:"3840x2160",tech:"1-Chip DLP",light:"Laser",tier:2},
+  {id:"opt-zk608tst",brand:"Optoma",model:"ZK608TST",lm:6000,tr:0.58,res:"3840x2160",tech:"1-Chip DLP",light:"Laser",tier:2},
+  {id:"opt-zh606tst",brand:"Optoma",model:"ZH606TST",lm:6000,tr:0.79,res:"1920x1080",tech:"1-Chip DLP",light:"Laser",tier:2},
+  {id:"opt-zk400",brand:"Optoma",model:"ZK400",lm:4000,tr:1.4,res:"3840x2160",tech:"1-Chip DLP",light:"Laser",tier:1},
+  {id:"opt-zu500uste",brand:"Optoma",model:"ZU500USTe",lm:5000,tr:0.22,res:"1920x1200",tech:"1-Chip DLP",light:"Laser",tier:1},
+  {id:"opt-zk420ust",brand:"Optoma",model:"ZK420UST",lm:4200,tr:0.25,res:"3840x2160",tech:"1-Chip DLP",light:"Laser",tier:1},
+  {id:"opt-zh450st",brand:"Optoma",model:"ZH450ST",lm:4500,tr:0.49,res:"1920x1080",tech:"1-Chip DLP",light:"Laser",tier:1},
+  {id:"opt-zh406st",brand:"Optoma",model:"ZH406ST",lm:4200,tr:0.49,res:"1920x1080",tech:"1-Chip DLP",light:"Laser",tier:1},
+  {id:"nec-p506ql",brand:"NEC",model:"NP-P506QL",lm:5000,tr:1.35,res:"3840x2160",tech:"1-Chip DLP",light:"Laser",tier:1},
+  {id:"nec-pe456usl",brand:"NEC",model:"PE456USL",lm:4500,tr:0.35,res:"1920x1200",tech:"3LCD",light:"Laser",tier:1},
+  {id:"benq-lh890ust",brand:"BenQ",model:"LH890UST",lm:4000,tr:0.25,res:"1920x1080",tech:"1-Chip DLP",light:"Laser",tier:1},
+  {id:"xiaomi-4k",brand:"Xiaomi",model:"XMJGTYD501FM 4K",lm:2200,tr:1.2,res:"3840x2160",tech:"1-Chip DLP",light:"Laser",tier:0},
+  {id:"opt-ml1050st",brand:"Optoma",model:"ML1050ST (Pico)",lm:1000,tr:0.49,res:"1280x800",tech:"1-Chip DLP",light:"LED",tier:0},
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let surf='parede', cov='paredes', view='top', lastRes=null, lastArea=null;
+
+// ============================================================
+// SURFACE UI
+// ============================================================
+function selSurf(btn){
+  document.querySelectorAll('.sb').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); surf=btn.dataset.type;
+  renderDims();
+  document.getElementById('sala-cov').style.display=surf==='sala'?'block':'none';
+}
+function selCov(el){
+  document.querySelectorAll('[data-cov]').forEach(e=>e.classList.remove('active'));
+  el.classList.add('active'); cov=el.dataset.cov;
+}
+
+function renderDims(){
+  const cfgs={
+    parede:{title:'📐 Parede / Fachada',fields:[{id:'dw',label:'Largura (m)',ph:'ex: 20'},{id:'dh',label:'Altura (m)',ph:'ex: 10'}]},
+    sala:{title:'📐 Sala Imersiva',fields:[{id:'dw',label:'Largura (m)',ph:'ex: 12'},{id:'dd',label:'Comprimento (m)',ph:'ex: 15'},{id:'dh',label:'Pé direito (m)',ph:'ex: 4'}]},
+    dome:{title:'📐 Dome (360°/270°)',fields:[{id:'ddiam',label:'Diâmetro (m)',ph:'ex: 10'}]},
+    cilindro:{title:'📐 Cilíndrico',fields:[{id:'ddiam',label:'Diâmetro (m)',ph:'ex: 8'},{id:'dh',label:'Altura (m)',ph:'ex: 5'}]},
+    aviao:{title:'📐 Avião',fields:[{id:'dw',label:'Largura fuselagem (m)',ph:'ex: 6'},{id:'dl',label:'Comprimento mapeado (m)',ph:'ex: 30'}]},
+    piso:{title:'📐 Piso / Chão',fields:[{id:'dw',label:'Largura (m)',ph:'ex: 10'},{id:'dd',label:'Comprimento (m)',ph:'ex: 15'}]},
+  };
+  const c=cfgs[surf];
+  document.getElementById('dim-title').textContent=c.title;
+  const n=c.fields.length;
+  let html=`<div class="${n===2?'row2':n===3?'row3':''}">`;
+  c.fields.forEach(f=>{ html+=`<div class="fg" style="margin-bottom:0"><label>${f.label}</label><input type="number" id="${f.id}" min="0.1" step="0.1" placeholder="${f.placeholder||f.ph}"></div>`; });
+  html+='</div>';
+  document.getElementById('dim-fields').innerHTML=html;
+}
+
+// ============================================================
+// AREA CALCULATION
+// ============================================================
+function getVal(id){const e=document.getElementById(id);return e?parseFloat(e.value)||0:0;}
+
+function calcArea(){
+  const w=getVal('dw'),h=getVal('dh'),d=getVal('dd'),diam=getVal('ddiam'),l=getVal('dl');
+  switch(surf){
+    case 'parede': return {area:w*h,totalW:w,totalH:h,label:`${w}m × ${h}m`};
+    case 'aviao':  return {area:w*l,totalW:w,totalH:l,label:`${w}m × ${l}m`};
+    case 'piso':   return {area:w*d,totalW:w,totalH:d,label:`${w}m × ${d}m`};
+    case 'sala':{
+      let a=2*(w+d)*h;
+      if(cov==='paredes-chao'||cov==='paredes-teto') a+=w*d;
+      if(cov==='tudo') a+=2*w*d;
+      return {area:a,totalW:w+d,totalH:h,roomW:w,roomD:d,roomH:h,label:`${w}×${d}m, pé ${h}m`};
+    }
+    case 'dome':{
+      const r=diam/2, theta=270*Math.PI/180;
+      const area=2*Math.PI*r*r*(1-Math.cos(theta/2));
+      return {area,totalW:diam,totalH:r,radius:r,label:`Ø${diam}m`};
+    }
+    case 'cilindro':{
+      const r=diam/2,area=2*Math.PI*r*h;
+      return {area,totalW:diam,totalH:h,radius:r,label:`Ø${diam}m × ${h}m`};
+    }
+  }
+  return {area:0,totalW:0,totalH:0,label:''};
+}
+
+// ============================================================
+// LUX TARGETS
+// ============================================================
+const LUX_MAP={
+  escuro:100,         // mínimo 100 lux
+  meia:160,
+  iluminado:400,
+  'externo-noite':150,
+  'externo-cidade':500,
+  'externo-festival':350
+};
+const ENV_LABELS={
+  escuro:'Ambiente escuro',meia:'Meia luz',iluminado:'Bem iluminado',
+  'externo-noite':'Externo — noite','externo-cidade':'Externo — cidade','externo-festival':'Externo — festival'
+};
+
+// ============================================================
+// LENS TYPE
+// ============================================================
+function lensType(tr){
+  if(tr<=0.3) return 'Ultra Short Throw';
+  if(tr<=0.8) return 'Short Throw';
+  if(tr<=1.6) return 'Standard';
+  if(tr<=3.0) return 'Long Throw';
+  return 'Extra Long Throw';
+}
+
+// ============================================================
+// MAIN ENGINE: select best projectors
+// ============================================================
+function calculate(){
+  const areaInfo=calcArea();
+  if(!areaInfo.area||areaInfo.area<=0){alert('Preencha as dimensões da superfície!');return;}
+
+  const env=document.getElementById('light-env').value;
+  const gainSel=document.getElementById('gain-sel').value;
+  const gain=gainSel==='custom'?parseFloat(document.getElementById('gain-val').value)||0.7:parseFloat(gainSel);
+  const blendPct=parseInt(document.getElementById('blend').value)/100; // ex: 0.20
+  const distAvail=parseFloat(document.getElementById('dist').value)||0;
+  const isExternal=!distAvail||distAvail<=0;
+
+  // LUX MÍNIMO GARANTIDO: nunca abaixo de 100
+  const lux=Math.max(100, LUX_MAP[env]||100);
+
+  // Lumens brutos necessários para cobrir a área com o lux alvo,
+  // descontando a reflectância da superfície (gain)
+  const lumensNeeded=lux*areaInfo.area/gain;
+
+  const candidates=[];
+
+  CATALOG.forEach(p=>{
+    // ── 1. QUANTIDADE por lumens ──────────────────────────────
+    // Quantos projetores para atingir lumensNeeded
+    const qtyLm=Math.ceil(lumensNeeded/p.lm);
+
+    // ── 2. GRID (cols × rows) ─────────────────────────────────
+    // Para superfícies retangulares, distribuímos proporcionalmente.
+    // Ratio W/H guia quantas colunas vs linhas usar.
+    const ratio=areaInfo.totalW/(areaInfo.totalH||areaInfo.totalW||1);
+    const cols=Math.max(1, Math.round(Math.sqrt(qtyLm*ratio)));
+    const rows=Math.max(1, Math.ceil(qtyLm/cols));
+    const qtyGrid=cols*rows; // quantidade real (grid completo)
+
+    // ── 3. DIMENSÃO de cada projetor na superfície ────────────
+    const projW=areaInfo.totalW/cols;   // largura coberta por cada proj (m)
+    const projH=areaInfo.totalH/rows;   // altura coberta por cada proj (m)
+
+    // ── 4. THROW necessário ───────────────────────────────────
+    // Distância mínima = throw ratio × largura da imagem de cada proj
+    const throwNeeded=p.tr*projW;
+
+    // ── 5. FILTRO DE DISTÂNCIA ────────────────────────────────
+    // Se o usuário informou distância disponível, o throw de cada projetor
+    // deve caber nessa distância (tolerância de 20% acima = aviso)
+    let distOk=true, distStatus='ok';
+    if(distAvail>0){
+      if(throwNeeded>distAvail*1.2){ distOk=false; }       // inviável
+      else if(throwNeeded>distAvail){ distStatus='warn'; }  // apertado
+    }
+    if(!distOk) return;
+
+    // ── 6. QUANTIDADE FINAL com blend ────────────────────────
+    // Blend adiciona projetores extras para cobrir as zonas de sobreposição.
+    // Fórmula: a cada junção horizontal entre colunas precisamos de 1 col a mais
+    // proporcional ao blend. Simplificado: qty += floor(cols * blendPct)
+    const blendExtra=Math.ceil(cols*blendPct); // projetores extras para blend
+    const qtyFinal=qtyGrid+blendExtra;
+
+    // ── 7. LUX REAL ENTREGUE ──────────────────────────────────
+    // Calculado apenas com qtyGrid (área útil, sem contar blend como área extra)
+    // luxOut = (lumens totais × gain) / área total
+    const luxOut=Math.round((p.lm*qtyGrid*gain)/areaInfo.area);
+
+    // ── 8. FILTRO DE LUX MÍNIMO ──────────────────────────────
+    // Mínimo obrigatório: 100 lux na superfície
+    if(luxOut<100) return;
+
+    // ── 9. CM POR PIXEL ───────────────────────────────────────
+    const[resW]=p.res.split('x').map(Number);
+    const cmPx=((projW*100)/resW).toFixed(1);
+
+    candidates.push({
+      ...p,
+      qty:qtyFinal,
+      qtyGrid,
+      cols, rows,
+      projW:projW.toFixed(2),
+      projH:projH.toFixed(2),
+      throwNeeded:throwNeeded.toFixed(1),
+      luxOut,
+      cmPx,
+      totalLm:p.lm*qtyFinal,
+      distStatus,
+      isExternal,
+      score:0
+    });
+  });
+
+  if(candidates.length===0){
+    alert('Nenhum projetor atingiu 100 lux na superfície com a distância informada. Tente aumentar a distância disponível ou reduzir as dimensões.');
+    return;
+  }
+
+  // ── SCORING ──────────────────────────────────────────────────
+  // Prioridade: lux adequado > menos projetores > qualidade > laser
+  candidates.forEach(c=>{
+    let s=0;
+    // Lux: 200+ = top das galáxias, 100-200 = adequado
+    if(c.luxOut>=200)      s+=30;
+    else if(c.luxOut>=100) s+=15;
+    // Menos projetores é melhor
+    s += Math.max(0, 40-(c.qty*2));
+    // Qualidade do equipamento
+    s += c.tier*5;
+    // Preferir laser
+    if(c.light.includes('Laser')&&!c.light.includes('Lamp')) s+=10;
+    // Distância ok
+    if(c.distStatus==='ok') s+=8;
+    // Lumens maiores = mais margem
+    s += Math.min(c.lm/5000, 10);
+    c.score=s;
+  });
+
+  candidates.sort((a,b)=>b.score-a.score);
+
+  // Top 3 com variedade (sem repetir o mesmo modelo)
+  const chosen=[], usedIds=new Set();
+  for(const c of candidates){
+    if(chosen.length>=3) break;
+    if(!usedIds.has(c.id)){ chosen.push(c); usedIds.add(c.id); }
+  }
+  // Se não chegou a 3, completa sem restrição
+  for(const c of candidates){
+    if(chosen.length>=3) break;
+    if(!chosen.includes(c)) chosen.push(c);
+  }
+
+  lastRes=chosen.slice(0,3);
+  lastArea=areaInfo;
+
+  // Render
+  renderResults(lastRes,areaInfo,lux,env,lumensNeeded,isExternal);
+  renderCroqui(lastRes,areaInfo);
+  document.getElementById('empty').style.display='none';
+  document.getElementById('results').style.display='block';
+  document.getElementById('croqui-panel').style.display='block';
+}
+
+// ============================================================
+// RENDER RESULTS
+// ============================================================
+function renderResults(res,area,lux,env,lumNeeded,isExternal){
+  const colors=['c1','c2','c3'];
+  const ranks=['🥇 Melhor Opção','🥈 Opção 2','🥉 Opção 3'];
+
+  // Summary box
+  document.getElementById('summary-box').innerHTML=`
+    <div><span style="color:var(--muted);font-size:10px">AMBIENTE</span><br><strong>${ENV_LABELS[env]}</strong></div>
+    <div><span style="color:var(--muted);font-size:10px">LUX ALVO</span><br><strong>${lux} lux</strong></div>
+    <div><span style="color:var(--muted);font-size:10px">ÁREA TOTAL</span><br><strong>${area.area.toFixed(1)} m²</strong></div>
+    <div><span style="color:var(--muted);font-size:10px">LUMENS NECESSÁRIOS</span><br><strong>${Math.round(lumNeeded).toLocaleString('pt-BR')} lm</strong></div>
+    <div><span style="color:var(--muted);font-size:10px">SUPERFÍCIE</span><br><strong>${area.label}</strong></div>
+  `;
+
+  // Warn if external
+  const wb=document.getElementById('warn-box');
+  if(isExternal){
+    wb.style.display='block';
+    wb.innerHTML='⚠️ <strong>Área externa sem distância definida:</strong> a distância mínima necessária está indicada em cada opção abaixo. Considere a estrutura de posicionamento dos projetores.';
+  } else { wb.style.display='none'; }
+
+  // Cards
+  const grid=document.getElementById('res-grid');
+  grid.innerHTML='';
+  res.forEach((r,i)=>{
+    const distInfo=isExternal
+      ?`<div class="st"><span class="sk">Dist. mínima necessária</span><span class="sv">${r.throwNeeded}m <span class="tag twarn">⚠ Externo</span></span></div>`
+      :`<div class="st"><span class="sk">Distância throw</span><span class="sv">${r.throwNeeded}m <span class="tag ${r.distStatus==='ok'?'tok':'twarn'}">${r.distStatus==='ok'?'OK':'Verificar'}</span></span></div>`;
+    grid.innerHTML+=`
+      <div class="rc ${colors[i]}">
+        <div class="rc-rank">${ranks[i]}</div>
+        <div class="rc-model">${r.brand} ${r.model}</div>
+        <div class="rc-brand">${r.tech} · ${r.light}</div>
+        <div class="rc-big">${r.qty}</div>
+        <div class="rc-unit">projetor${r.qty>1?'es':''}</div>
+        <div class="st"><span class="sk">Lumens cada</span><span class="sv">${r.lm.toLocaleString('pt-BR')} lm</span></div>
+        <div class="st"><span class="sk">Total sistema</span><span class="sv">${r.totalLm.toLocaleString('pt-BR')} lm</span></div>
+        <div class="st"><span class="sk">Lux na superfície</span><span class="sv">${r.luxOut} lux ${r.luxOut>=200?'<span class="tag" style="background:rgba(168,85,247,.2);color:#c084fc">⭐ Top</span>':r.luxOut>=100?'<span class="tag tok">✓ OK</span>':'<span class="tag terr">✗ Baixo</span>'}</span></div>
+        ${distInfo}
+        <div class="st"><span class="sk">Tipo de lente</span><span class="sv">${lensType(r.tr)}</span></div>
+        <div class="st"><span class="sk">Grid</span><span class="sv">${r.cols}×${r.rows}</span></div>
+        <div class="st"><span class="sk">Resolução</span><span class="sv">${r.res}</span></div>
+        <div class="st"><span class="sk">cm/pixel</span><span class="sv">${r.cmPx} cm</span></div>
+      </div>`;
+  });
+
+  // Detail table
+  const tbody=document.getElementById('det-body');
+  const colors2=['var(--c1)','var(--c2)','var(--c3)'];
+  tbody.innerHTML='';
+  res.forEach((r,i)=>{
+    const dist=isExternal?`${r.throwNeeded}m (mín)`:r.throwNeeded+'m';
+    const status=isExternal?'<span class="tag twarn">Externo</span>':
+      r.distStatus==='ok'?'<span class="tag tok">✓ OK</span>':'<span class="tag twarn">⚠ Verificar</span>';
+    tbody.innerHTML+=`<tr>
+      <td><strong style="color:${colors2[i]}">${i+1}º</strong></td>
+      <td><strong>${r.brand}</strong><br><span style="color:var(--muted);font-size:10px">${r.model}</span></td>
+      <td>${r.lm.toLocaleString('pt-BR')}</td>
+      <td><strong style="font-size:16px;color:${colors2[i]}">${r.qty}</strong></td>
+      <td>${r.totalLm.toLocaleString('pt-BR')}</td>
+      <td>${r.luxOut} ${r.luxOut>=200?'<span class="tag" style="background:rgba(168,85,247,.2);color:#c084fc">⭐</span>':r.luxOut>=100?'<span class="tag tok">✓</span>':'<span class="tag terr">✗</span>'}</td>
+      <td>${dist} ${status}</td>
+      <td>${lensType(r.tr)} (${r.tr}:1)</td>
+      <td>${r.cmPx}</td>
+      <td>${r.cols}×${r.rows}</td>
+      <td>${r.light}</td>
+    </tr>`;
+  });
+
+  document.getElementById('res-title').textContent=`Melhores projetores · ${area.label} · ${lux} lux`;
+}
+
+// ============================================================
+// CROQUI
+// ============================================================
+function switchView(v){
+  view=v;
+  document.getElementById('tab-top').classList.toggle('active',v==='top');
+  document.getElementById('tab-side').classList.toggle('active',v==='side');
+  if(lastRes) renderCroqui(lastRes,lastArea);
+}
+
+function renderCroqui(res,area){
+  const svg=document.getElementById('croqui-svg');
+  view==='top'?drawTop(svg,res,area):drawSide(svg,res,area);
+  // Legend
+  const leg=document.getElementById('croqui-legend');
+  const cs=['#7c3aed','#0ea5e9','#10b981'];
+  let h=`<div class="li"><div class="ld" style="background:#2a2a4a;border:1px solid #5555aa"></div> Superfície</div>`;
+  res.forEach((r,i)=>{h+=`<div class="li"><div class="ld" style="background:${cs[i]}"></div> ${i+1}º: ${r.qty}× ${r.brand} ${r.model}</div>`;});
+  h+=`<div class="li"><div class="ld" style="background:rgba(124,58,237,.3);border:1px dashed #7c3aed"></div> Zona Blend</div>`;
+  leg.innerHTML=h;
+}
+
+function drawTop(svg,res,area){
+  const W=720,H=360,pad=48;
+  const r=res[0];
+  const surfaceType=surf;
+  const cs=['#7c3aed','#0ea5e9','#10b981'];
+  const csa=['rgba(124,58,237','rgba(14,165,233','rgba(16,185,129'];
+
+  let out=`<defs>
+    <marker id="ar" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#7878a0"/></marker>
+    <pattern id="g" width="18" height="18" patternUnits="userSpaceOnUse"><path d="M18 0L0 0 0 18" fill="none" stroke="#111120" stroke-width=".5"/></pattern>
+  </defs>
+  <rect width="${W}" height="${H}" fill="url(#g)"/>
+  <text x="${W/2}" y="18" text-anchor="middle" fill="#4a4a6a" font-size="10" font-family="Inter">VISTA SUPERIOR — ${surfaceType.toUpperCase()} ${area.label}</text>`;
+
+  if(surfaceType==='dome'){
+    out+=drawDomeTopSVG(W,H,pad,res,area,cs,csa);
+  } else if(surfaceType==='sala'){
+    out+=drawSalaTopSVG(W,H,pad,res,area,cs,csa);
+  } else if(surfaceType==='cilindro'){
+    out+=drawCilindroTopSVG(W,H,pad,res,area,cs,csa);
+  } else {
+    out+=drawWallTopSVG(W,H,pad,res,area,cs,csa);
+  }
+  svg.innerHTML=out;
+}
+
+function drawWallTopSVG(W,H,pad,res,area,cs,csa){
+  const wallY=pad+24,wallH=16;
+  const drawW=W-2*pad;
+  const wallX=pad;
+  let out=`
+    <rect x="${wallX}" y="${wallY}" width="${drawW}" height="${wallH}" fill="#2a2a4a" stroke="#5555aa" stroke-width="2" rx="2"/>
+    <text x="${W/2}" y="${wallY+11}" text-anchor="middle" fill="#8080cc" font-size="9" font-family="Inter" font-weight="700">SUPERFÍCIE (${area.totalW}m × ${area.totalH}m)</text>`;
+
+  const rowH=(H-wallY-wallH-pad)/res.length;
+  res.forEach((r,ri)=>{
+    const projY=wallY+wallH+ri*rowH+rowH/2;
+    const projW_px=drawW/r.cols;
+    for(let c=0;c<r.cols;c++){
+      const px=wallX+c*projW_px+projW_px/2;
+      const blend=parseInt(document.getElementById('blend').value)/100;
+      const bW=projW_px*blend;
+      // cone
+      out+=`<polygon points="${px},${projY} ${wallX+c*projW_px},${wallY+wallH} ${wallX+(c+1)*projW_px},${wallY+wallH}" fill="${csa[ri]},0.07)" stroke="${cs[ri]}" stroke-width=".5" stroke-dasharray="4,3"/>`;
+      // blend zone
+      if(c>0) out+=`<rect x="${wallX+c*projW_px}" y="${wallY+wallH}" width="${bW}" height="${projY-wallY-wallH}" fill="${csa[ri]},0.15)" opacity=".5"/>`;
+      // projector icon
+      out+=`<g transform="translate(${px-13},${projY-9})">
+        <rect width="26" height="17" rx="4" fill="${cs[ri]}" opacity=".9"/>
+        <rect x="4" y="4" width="18" height="9" rx="2" fill="rgba(255,255,255,.2)"/>
+        <circle cx="22" cy="8" r="2.5" fill="rgba(255,255,255,.6)"/>
+      </g>
+      <text x="${px}" y="${projY+20}" text-anchor="middle" fill="${cs[ri]}" font-size="8" font-family="Inter" font-weight="700">${ri+1}</text>`;
+    }
+    // distance arrow
+    const aX=W-16;
+    out+=`<line x1="${aX}" y1="${wallY+wallH}" x2="${aX}" y2="${projY}" stroke="${cs[ri]}" stroke-width="1" marker-end="url(#ar)" opacity=".7"/>
+    <text x="${aX-4}" y="${(wallY+wallH+projY)/2+4}" text-anchor="end" fill="${cs[ri]}" font-size="9" font-family="Inter">${r.throwNeeded}m</text>`;
+  });
+  return out;
+}
+
+function drawSalaTopSVG(W,H,pad,res,area,cs,csa){
+  const rW=area.roomW||area.totalW/2, rD=area.roomD||area.totalW/2;
+  const scale=Math.min((W-2*pad-20)/rD,(H-2*pad-30)/rW)*0.8;
+  const rWpx=rD*scale,rHpx=rW*scale;
+  const rx=(W-rWpx)/2,ry=(H-rHpx)/2+10;
+  let out=`
+    <rect x="${rx}" y="${ry}" width="${rWpx}" height="${rHpx}" fill="#181828" stroke="#333355" stroke-width="2"/>
+    <rect x="${rx}" y="${ry}" width="${rWpx}" height="7" fill="#2a2a4a"/>
+    <rect x="${rx}" y="${ry+rHpx-7}" width="${rWpx}" height="7" fill="#2a2a4a"/>
+    <rect x="${rx}" y="${ry}" width="7" height="${rHpx}" fill="#2a2a4a"/>
+    <rect x="${rx+rWpx-7}" y="${ry}" width="7" height="${rHpx}" fill="#2a2a4a"/>
+    <text x="${W/2}" y="${ry+rHpx/2+5}" text-anchor="middle" fill="#252540" font-size="13" font-family="Space Grotesk" font-weight="700">${rW}×${rD}m</text>`;
+  res.forEach((r,ri)=>{
+    const n=r.qty,step=(2*Math.PI)/n;
+    const pr=Math.min(rWpx,rHpx)*0.42+ri*8;
+    const cx=rx+rWpx/2,cy=ry+rHpx/2;
+    for(let i=0;i<n;i++){
+      const a=i*step-Math.PI/2;
+      const px=cx+pr*Math.cos(a),py=cy+pr*Math.sin(a);
+      out+=`<line x1="${px}" y1="${py}" x2="${cx}" y2="${cy}" stroke="${cs[ri]}" stroke-width=".7" opacity=".25" stroke-dasharray="4,3"/>
+      <circle cx="${px}" cy="${py}" r="7" fill="${cs[ri]}" opacity="${ri===0?1:.55}" stroke="rgba(255,255,255,.3)" stroke-width="1"/>
+      <text x="${px}" y="${py+4}" text-anchor="middle" fill="white" font-size="7" font-weight="700">${ri+1}</text>`;
+    }
+  });
+  return out;
+}
+
+function drawDomeTopSVG(W,H,pad,res,area,cs,csa){
+  const cx=W/2,cy=H/2+8,rpx=Math.min(W,H)/2-pad-18;
+  let out=`<circle cx="${cx}" cy="${cy}" r="${rpx}" fill="#121222" stroke="#2a2a5a" stroke-width="2"/>
+    <circle cx="${cx}" cy="${cy}" r="${rpx*.12}" fill="#1a1a32" stroke="#3a3a6a" stroke-width="1" stroke-dasharray="3,3"/>
+    <text x="${cx}" y="${cy+rpx+16}" text-anchor="middle" fill="#4a4a6a" font-size="9" font-family="Inter">Ø${area.totalW}m — 360°/270°</text>`;
+  res.forEach((r,ri)=>{
+    const n=r.qty,step=(2*Math.PI)/n,pr=rpx*(.72+ri*.08);
+    for(let i=0;i<n;i++){
+      const a=i*step-Math.PI/2,px=cx+pr*Math.cos(a),py=cy+pr*Math.sin(a);
+      out+=`<line x1="${px}" y1="${py}" x2="${cx}" y2="${cy}" stroke="${cs[ri]}" stroke-width=".8" opacity=".3" stroke-dasharray="4,3"/>
+      <circle cx="${px}" cy="${py}" r="7" fill="${cs[ri]}" opacity="${ri===0?1:.6}"/>
+      <text x="${px}" y="${py+4}" text-anchor="middle" fill="white" font-size="7" font-weight="700">${ri+1}</text>`;
+    }
+  });
+  return out;
+}
+
+function drawCilindroTopSVG(W,H,pad,res,area,cs,csa){
+  const cx=W/2,cy=H/2+8,rpx=Math.min(W,H)/2-pad-18;
+  let out=`<circle cx="${cx}" cy="${cy}" r="${rpx}" fill="#121222" stroke="#2a2a5a" stroke-width="2"/>
+    <text x="${cx}" y="${cy+rpx+16}" text-anchor="middle" fill="#4a4a6a" font-size="9" font-family="Inter">Cilindro Ø${area.totalW}m</text>`;
+  res.forEach((r,ri)=>{
+    const n=r.qty,step=(2*Math.PI)/n,pr=rpx*1.12+ri*14;
+    for(let i=0;i<n;i++){
+      const a=i*step-Math.PI/2,px=cx+pr*Math.cos(a),py=cy+pr*Math.sin(a);
+      const sx=cx+rpx*Math.cos(a),sy=cy+rpx*Math.sin(a);
+      out+=`<line x1="${px}" y1="${py}" x2="${sx}" y2="${sy}" stroke="${cs[ri]}" stroke-width="1" opacity=".4" stroke-dasharray="4,3"/>
+      <circle cx="${px}" cy="${py}" r="7" fill="${cs[ri]}" opacity="${ri===0?1:.6}"/>
+      <text x="${px}" y="${py+4}" text-anchor="middle" fill="white" font-size="7" font-weight="700">${ri+1}</text>`;
+    }
+  });
+  return out;
+}
+
+function drawSide(svg,res,area){
+  const W=720,H=360,pad=50;
+  const cs=['#7c3aed','#0ea5e9','#10b981'];
+  const csa=['rgba(124,58,237','rgba(14,165,233','rgba(16,185,129'];
+  const sH=area.totalH||5;
+  const maxThrow=Math.max(...res.map(r=>parseFloat(r.throwNeeded)));
+  const scale=Math.min((H-2*pad-30)/(sH*1.3),(W-2*pad-60)/(maxThrow*1.5));
+  const surfX=pad+30,groundY=H-pad;
+  const surfHpx=sH*scale;
+  const surfTop=groundY-surfHpx;
+
+  let out=`<defs>
+    <marker id="ar2" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#7878a0"/></marker>
+    <pattern id="g2" width="18" height="18" patternUnits="userSpaceOnUse"><path d="M18 0L0 0 0 18" fill="none" stroke="#111120" stroke-width=".5"/></pattern>
+  </defs>
+  <rect width="${W}" height="${H}" fill="url(#g2)"/>
+  <line x1="${pad}" y1="${groundY}" x2="${W-pad}" y2="${groundY}" stroke="#2a2a4a" stroke-width="2"/>
+  <text x="${pad}" y="${groundY+13}" fill="#3a3a5a" font-size="9" font-family="Inter">Piso</text>
+  <rect x="${surfX}" y="${surfTop}" width="12" height="${surfHpx}" fill="#2a2a4a" stroke="#5555aa" stroke-width="2" rx="2"/>
+  <text x="${surfX+6}" y="${surfTop-7}" text-anchor="middle" fill="#7070bb" font-size="9" font-family="Inter">Sup.</text>
+  <line x1="${surfX-18}" y1="${surfTop}" x2="${surfX-18}" y2="${groundY}" stroke="#3a3a5a" stroke-width="1" marker-end="url(#ar2)"/>
+  <text x="${surfX-22}" y="${(surfTop+groundY)/2+4}" text-anchor="end" fill="#5a5a7a" font-size="9" font-family="Inter">${sH}m</text>
+  <text x="${W/2}" y="17" text-anchor="middle" fill="#4a4a6a" font-size="10" font-family="Inter">VISTA LATERAL — ${surf.toUpperCase()}</text>`;
+
+  res.forEach((r,ri)=>{
+    const projX=surfX+12+parseFloat(r.throwNeeded)*scale;
+    const projY=groundY-surfHpx*0.5-ri*18;
+    // cone
+    const coneColor=ri===0?'rgba(124,58,237,0.1)':ri===1?'rgba(14,165,233,0.08)':'rgba(16,185,129,0.08)';
+    out+=`<polygon points="${surfX+12},${surfTop} ${surfX+12},${groundY} ${projX},${projY}" fill="${coneColor}" stroke="${cs[ri]}" stroke-width=".7" stroke-dasharray="5,3" opacity=".8"/>`;
+    // projector
+    out+=`<g transform="translate(${projX-16},${projY-9})">
+      <rect width="32" height="18" rx="5" fill="${cs[ri]}" opacity=".9"/>
+      <rect x="4" y="4" width="18" height="10" rx="2" fill="rgba(255,255,255,.2)"/>
+      <circle cx="10" cy="9" r="2.5" fill="rgba(255,255,255,.5)"/>
+    </g>
+    <text x="${projX}" y="${projY+22}" text-anchor="middle" fill="${cs[ri]}" font-size="9" font-family="Inter" font-weight="700">${ri+1}º ${r.qty}×${r.model.split(' ')[r.model.split(' ').length-1]}</text>`;
+    // distance arrow
+    const aY=groundY+18+ri*13;
+    out+=`<line x1="${surfX+12}" y1="${aY}" x2="${projX}" y2="${aY}" stroke="${cs[ri]}" stroke-width="1" marker-end="url(#ar2)" opacity=".7"/>
+    <text x="${(surfX+12+projX)/2}" y="${aY-4}" text-anchor="middle" fill="${cs[ri]}" font-size="9" font-family="Inter">${r.throwNeeded}m</text>`;
+  });
+  svg.innerHTML=out;
+}
+
+// ============================================================
+// PDF EXPORT
+// ============================================================
+async function exportPDF(){
+  if(!lastRes) return;
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+  const W=297,H=210,m=14;
+  doc.setFillColor(10,10,20);doc.rect(0,0,W,H,'F');
+  doc.setFillColor(18,18,26);doc.rect(0,0,W,20,'F');
+  doc.setTextColor(232,232,240);doc.setFont('helvetica','bold');doc.setFontSize(16);doc.text('PixelSAV',m,13);
+  doc.setFontSize(8);doc.setTextColor(120,120,160);doc.text('Calculadora de Projetores',m,19);
+  doc.text(`Gerado em ${new Date().toLocaleDateString('pt-BR')}`,W-m,13,{align:'right'});
+  doc.setTextColor(168,85,247);doc.setFontSize(9);
+  doc.text(`${document.getElementById('res-title').textContent}`,W/2,13,{align:'center'});
+
+  let y=26;
+  const cC=[[124,58,237],[14,165,233],[16,185,129]];
+  const cW=(W-2*m-10)/3;
+  lastRes.forEach((r,i)=>{
+    const x=m+i*(cW+5);
+    doc.setFillColor(18,18,26);doc.roundedRect(x,y,cW,72,3,3,'F');
+    doc.setDrawColor(...cC[i]);doc.roundedRect(x,y,cW,72,3,3,'S');
+    doc.setFillColor(...cC[i]);doc.rect(x,y,cW,1.5,'F');
+    doc.setTextColor(...cC[i]);doc.setFont('helvetica','bold');doc.setFontSize(8);
+    doc.text(`${i+1}º — ${r.brand} ${r.model}`,x+4,y+8);
+    doc.setFontSize(26);doc.text(`${r.qty}`,x+4,y+26);
+    doc.setFontSize(8);doc.setTextColor(180,180,200);
+    doc.text(`projetor${r.qty>1?'es':''}`,x+4,y+32);
+    const stats=[
+      ['Lumens cada',r.lm.toLocaleString('pt-BR')],
+      ['Total sistema',r.totalLm.toLocaleString('pt-BR')],
+      ['Lux superfície',`${r.luxOut} lux`],
+      ['Distância throw',`${r.throwNeeded}m`],
+      ['Tipo de lente',lensType(r.tr)],
+      ['Resolução',r.res],
+      ['cm/pixel',`${r.cmPx} cm`],
+      ['Grid',`${r.cols}×${r.rows}`],
+      ['Fonte de luz',r.light],
+    ];
+    stats.forEach((s,si)=>{
+      const sy=y+38+si*3.8;
+      doc.setFontSize(7);doc.setTextColor(120,120,160);doc.text(s[0],x+4,sy);
+      doc.setTextColor(220,220,240);doc.text(s[1],x+cW-4,sy,{align:'right'});
+    });
+  });
+
+  y+=78;
+  doc.setTextColor(120,120,160);doc.setFontSize(7.5);doc.setFont('helvetica','bold');
+  doc.text('COMPARATIVO TÉCNICO',m,y);y+=5;
+  doc.setFillColor(26,26,38);doc.rect(m,y,W-2*m,6,'F');
+  const ths=['#','Modelo','Lm/unid','Qtd','Total Lm','Lux','Throw','Lente','cm/px','Grid','Luz'];
+  const cws=[8,48,22,12,22,14,20,30,14,12,24];
+  doc.setTextColor(100,100,140);doc.setFontSize(6.5);
+  let cx2=m;ths.forEach((t,ti)=>{doc.text(t,cx2+2,y+4.5);cx2+=cws[ti];});y+=7;
+  lastRes.forEach((r,i)=>{
+    doc.setFillColor(i%2?18:15,i%2?18:15,i%2?26:22);doc.rect(m,y,W-2*m,6,'F');
+    const vals=[`${i+1}`,`${r.brand} ${r.model}`,r.lm.toLocaleString('pt-BR'),`${r.qty}`,r.totalLm.toLocaleString('pt-BR'),`${r.luxOut}`,`${r.throwNeeded}m`,lensType(r.tr),`${r.cmPx}`,`${r.cols}×${r.rows}`,r.light];
+    doc.setTextColor(220,220,240);doc.setFont('helvetica','normal');doc.setFontSize(7);
+    cx2=m;vals.forEach((v,vi)=>{doc.text(String(v).substring(0,cws[vi]/2+2),cx2+2,y+4.5);cx2+=cws[vi];});
+    y+=7;
+  });
+
+  // Footer page 1
+  doc.setFillColor(18,18,26);doc.rect(0,H-9,W,9,'F');
+  doc.setTextColor(60,60,80);doc.setFontSize(6.5);doc.setFont('helvetica','normal');
+  doc.text('PixelSAV — Soluções em Projeção Mapeada e Experiências Imersivas',m,H-3);
+  doc.text('pixelsav.com.br',W-m,H-3,{align:'right'});
+
+  // ---- PAGE 2: CROQUIS ----
+  doc.addPage();
+  doc.setFillColor(10,10,20);doc.rect(0,0,W,H,'F');
+  doc.setFillColor(18,18,26);doc.rect(0,0,W,18,'F');
+  doc.setTextColor(168,85,247);doc.setFont('helvetica','bold');doc.setFontSize(12);
+  doc.text('PixelSAV',m,12);
+  doc.setFontSize(8);doc.setTextColor(120,120,160);doc.text('Croqui de Instalação',m+32,12);
+  doc.text(document.getElementById('res-title').textContent,W/2,12,{align:'center'});
+  doc.text(`${new Date().toLocaleDateString('pt-BR')}`,W-m,12,{align:'right'});
+
+  // Helper: SVG string → canvas image data
+  async function svgStringToImgData(svgString){
+    const canvas=document.createElement('canvas');canvas.width=720;canvas.height=360;
+    const ctx=canvas.getContext('2d');ctx.fillStyle='#0c0c14';ctx.fillRect(0,0,720,360);
+    const img=new Image();
+    const blob=new Blob([svgString],{type:'image/svg+xml'});
+    const url=URL.createObjectURL(blob);
+    await new Promise(r=>{img.onload=()=>{ctx.drawImage(img,0,0);URL.revokeObjectURL(url);r();};img.onerror=r;img.src=url;});
+    return canvas.toDataURL('image/png');
+  }
+
+  // Helper: render a view to SVG string without touching the DOM svg element
+  function renderViewToString(viewType){
+    const tmpSvg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    tmpSvg.setAttribute('viewBox','0 0 720 360');
+    tmpSvg.setAttribute('xmlns','http://www.w3.org/2000/svg');
+    if(viewType==='top') drawTop(tmpSvg,lastRes,lastArea);
+    else drawSide(tmpSvg,lastRes,lastArea);
+    return new XMLSerializer().serializeToString(tmpSvg);
+  }
+
+  try{
+    const imgW=(W-2*m-10)/2;
+    const imgH=imgW*(360/720);
+    const yImg=24;
+
+    // TOP VIEW
+    doc.setTextColor(100,100,140);doc.setFontSize(8);doc.setFont('helvetica','bold');
+    doc.text('VISTA DE CIMA',m,yImg);
+    const topData=await svgStringToImgData(renderViewToString('top'));
+    doc.addImage(topData,'PNG',m,yImg+4,imgW,imgH);
+
+    // SIDE VIEW
+    const x2=m+imgW+10;
+    doc.text('VISTA LATERAL',x2,yImg);
+    const sideData=await svgStringToImgData(renderViewToString('side'));
+    doc.addImage(sideData,'PNG',x2,yImg+4,imgW,imgH);
+
+    // LEGEND below images
+    const legY=yImg+imgH+14;
+    doc.setTextColor(120,120,160);doc.setFontSize(7);doc.setFont('helvetica','bold');
+    doc.text('LEGENDA:',m,legY);
+    const cs=[[124,58,237],[14,165,233],[16,185,129]];
+    lastRes.forEach((r,i)=>{
+      doc.setFillColor(...cs[i]);doc.circle(m+26+i*70,legY-1.5,2,'F');
+      doc.setTextColor(200,200,220);doc.setFont('helvetica','normal');
+      doc.text(`${i+1}º — ${r.qty}× ${r.brand} ${r.model}`,m+30+i*70,legY);
+    });
+
+    // Notes box
+    const notY=legY+10;
+    doc.setFillColor(20,20,32);doc.roundedRect(m,notY,W-2*m,28,3,3,'F');
+    doc.setDrawColor(50,50,80);doc.roundedRect(m,notY,W-2*m,28,3,3,'S');
+    doc.setTextColor(120,120,160);doc.setFont('helvetica','bold');doc.setFontSize(7.5);
+    doc.text('NOTAS DE INSTALAÇÃO',m+4,notY+6);
+    doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(180,180,200);
+    const notes=[
+      `• Blend/sobreposição entre projetores: ${document.getElementById('blend').value}%`,
+      `• Ambiente: ${document.getElementById('light-env').options[document.getElementById('light-env').selectedIndex].text}`,
+      `• Superfície: ${document.getElementById('gain-sel').options[document.getElementById('gain-sel').selectedIndex].text}`,
+      `• Distância disponível: ${document.getElementById('dist').value||'Não definida (área externa)'}`,
+    ];
+    notes.forEach((n,ni)=>doc.text(n,m+4,notY+12+ni*4));
+
+  }catch(e){
+    doc.setTextColor(80,80,100);doc.text('[Erro ao gerar croqui]',m,40);
+  }
+
+  // Footer page 2
+  doc.setFillColor(18,18,26);doc.rect(0,H-9,W,9,'F');
+  doc.setTextColor(60,60,80);doc.setFontSize(6.5);doc.setFont('helvetica','normal');
+  doc.text('PixelSAV — Soluções em Projeção Mapeada e Experiências Imersivas',m,H-3);
+  doc.text('pixelsav.com.br',W-m,H-3,{align:'right'});
+
+  doc.save(`PixelSAV_Projetores_${new Date().toISOString().slice(0,10)}.pdf`);
+}
+
+// INIT
+renderDims();
+</script>
+</body>
+</html>
