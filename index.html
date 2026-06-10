@@ -395,11 +395,30 @@ function calcArea(){
     case 'aviao':  return {area:w*l,totalW:w,totalH:l,label:`${w}m × ${l}m`};
     case 'piso':   return {area:w*d,totalW:w,totalH:d,label:`${w}m × ${d}m`};
     case 'sala':{
-      let a=2*(w+d)*h;  // 4 paredes sempre
-      if(cov==='paredes-chao') a+=w*d;        // + chão
-      else if(cov==='paredes-teto') a+=w*d;   // + teto
-      else if(cov==='tudo') a+=2*(w*d);       // + chão + teto
-      return {area:a,totalW:w+d,totalH:h,roomW:w,roomD:d,roomH:h,label:`${w}×${d}m, pé ${h}m`};
+      // Cada superfície calculada individualmente para distribuição correta
+      const paredeW1=w*h, paredeW2=w*h; // paredes largura (frente/fundo)
+      const paredeD1=d*h, paredeD2=d*h; // paredes comprimento (lados)
+      const areaPiso=w*d;
+      const areaTeto=w*d;
+
+      // Superfícies ativas conforme cobertura selecionada
+      const surfaces=[];
+      surfaces.push({nome:'Parede Frente', area:paredeW1, w:w, h:h});
+      surfaces.push({nome:'Parede Fundo',  area:paredeW2, w:w, h:h});
+      surfaces.push({nome:'Parede Esq.',   area:paredeD1, w:d, h:h});
+      surfaces.push({nome:'Parede Dir.',   area:paredeD2, w:d, h:h});
+      if(cov==='paredes-chao'||cov==='tudo')
+        surfaces.push({nome:'Chão', area:areaPiso, w:w, h:d});
+      if(cov==='paredes-teto'||cov==='tudo')
+        surfaces.push({nome:'Teto', area:areaTeto, w:w, h:d});
+
+      const totalArea=surfaces.reduce((s,x)=>s+x.area,0);
+      return {
+        area:totalArea, totalW:w+d, totalH:h,
+        roomW:w, roomD:d, roomH:h,
+        surfaces, // breakdown por superfície
+        label:`${w}×${d}m, pé ${h}m`
+      };
     }
     case 'dome':{
       const r=diam/2, theta=270*Math.PI/180;
@@ -465,54 +484,89 @@ function calculate(){
   const candidates=[];
 
   CATALOG.forEach(p=>{
-    // ── 1. QUANTIDADE por lumens ──────────────────────────────
-    // Quantos projetores para atingir lumensNeeded
+    const[resW]=p.res.split('x').map(Number);
+
+    // ── SALA IMERSIVA: calcula por superfície ─────────────────
+    if(surf==='sala' && areaInfo.surfaces){
+      let qtyTotal=0, maxThrow=0, minLux=Infinity;
+      const breakdown=[];
+
+      for(const s of areaInfo.surfaces){
+        // Lumens necessários para esta superfície
+        const lmNeeded=lux*s.area/gain;
+        const qtyLm=Math.ceil(lmNeeded/p.lm);
+        // Grid para esta superfície
+        const ratio=s.w/(s.h||1);
+        const cols=Math.max(1,Math.round(Math.sqrt(qtyLm*ratio)));
+        const rows=Math.max(1,Math.ceil(qtyLm/cols));
+        const qtyGrid=cols*rows;
+        const projW=s.w/cols;
+        const throwNeeded=p.tr*projW;
+        const junctions=(cols-1)+(rows-1);
+        const blendExtra=junctions>0?Math.ceil(junctions*blendPct):0;
+        const qtyFinal=qtyGrid+blendExtra;
+        const luxSurf=Math.round((p.lm*qtyGrid*gain)/s.area);
+        qtyTotal+=qtyFinal;
+        if(throwNeeded>maxThrow) maxThrow=throwNeeded;
+        if(luxSurf<minLux) minLux=luxSurf;
+        breakdown.push({nome:s.nome,qty:qtyFinal,cols,rows,throwNeeded:throwNeeded.toFixed(1),lux:luxSurf});
+      }
+
+      if(minLux<100) return; // alguma superfície abaixo de 100 lux
+
+      // Filtro distância pelo maior throw necessário
+      let distOk=true, distStatus='ok';
+      if(distAvail>0){
+        if(maxThrow>distAvail*1.2){ distOk=false; }
+        else if(maxThrow>distAvail){ distStatus='warn'; }
+      }
+      if(!distOk) return;
+
+      const projWavg=(areaInfo.roomW/2);
+      const cmPx=((projWavg*100)/resW).toFixed(1);
+
+      candidates.push({
+        ...p,
+        qty:qtyTotal,
+        qtyGrid:qtyTotal,
+        cols:2, rows:Math.ceil(qtyTotal/8),
+        projW:projWavg.toFixed(2),
+        projH:(areaInfo.roomH/2).toFixed(2),
+        throwNeeded:maxThrow.toFixed(1),
+        luxOut:minLux,
+        cmPx,
+        totalLm:p.lm*qtyTotal,
+        distStatus,
+        isExternal,
+        breakdown, // detalhamento por superfície
+        score:0
+      });
+      return;
+    }
+
+    // ── OUTRAS SUPERFÍCIES: cálculo padrão ───────────────────
     const qtyLm=Math.ceil(lumensNeeded/p.lm);
-
-    // ── 2. GRID (cols × rows) ─────────────────────────────────
-    // Para superfícies retangulares, distribuímos proporcionalmente.
-    // Ratio W/H guia quantas colunas vs linhas usar.
     const ratio=areaInfo.totalW/(areaInfo.totalH||areaInfo.totalW||1);
-    const cols=Math.max(1, Math.round(Math.sqrt(qtyLm*ratio)));
-    const rows=Math.max(1, Math.ceil(qtyLm/cols));
-    const qtyGrid=cols*rows; // quantidade real (grid completo)
-
-    // ── 3. DIMENSÃO de cada projetor na superfície ────────────
-    const projW=areaInfo.totalW/cols;   // largura coberta por cada proj (m)
-    const projH=areaInfo.totalH/rows;   // altura coberta por cada proj (m)
-
-    // ── 4. THROW necessário ───────────────────────────────────
-    // Distância mínima = throw ratio × largura da imagem de cada proj
+    const cols=Math.max(1,Math.round(Math.sqrt(qtyLm*ratio)));
+    const rows=Math.max(1,Math.ceil(qtyLm/cols));
+    const qtyGrid=cols*rows;
+    const projW=areaInfo.totalW/cols;
+    const projH=areaInfo.totalH/(rows||1);
     const throwNeeded=p.tr*projW;
 
-    // ── 5. FILTRO DE DISTÂNCIA ────────────────────────────────
-    // Se o usuário informou distância disponível, o throw de cada projetor
-    // deve caber nessa distância (tolerância de 20% acima = aviso)
     let distOk=true, distStatus='ok';
     if(distAvail>0){
-      if(throwNeeded>distAvail*1.2){ distOk=false; }       // inviável
-      else if(throwNeeded>distAvail){ distStatus='warn'; }  // apertado
+      if(throwNeeded>distAvail*1.2){ distOk=false; }
+      else if(throwNeeded>distAvail){ distStatus='warn'; }
     }
     if(!distOk) return;
 
-    // ── 6. QUANTIDADE FINAL com blend ────────────────────────
-    // Blend adiciona projetores extras para cobrir as zonas de sobreposição.
-    // Fórmula: a cada junção horizontal entre colunas precisamos de 1 col a mais
-    // proporcional ao blend. Simplificado: qty += floor(cols * blendPct)
-    const blendExtra=Math.ceil(cols*blendPct); // projetores extras para blend
+    const junctions=(cols-1)+(rows-1);
+    const blendExtra=junctions>0?Math.ceil(junctions*blendPct):0;
     const qtyFinal=qtyGrid+blendExtra;
-
-    // ── 7. LUX REAL ENTREGUE ──────────────────────────────────
-    // Calculado apenas com qtyGrid (área útil, sem contar blend como área extra)
-    // luxOut = (lumens totais × gain) / área total
     const luxOut=Math.round((p.lm*qtyGrid*gain)/areaInfo.area);
-
-    // ── 8. FILTRO DE LUX MÍNIMO ──────────────────────────────
-    // Mínimo obrigatório: 100 lux na superfície
     if(luxOut<100) return;
 
-    // ── 9. CM POR PIXEL ───────────────────────────────────────
-    const[resW]=p.res.split('x').map(Number);
     const cmPx=((projW*100)/resW).toFixed(1);
 
     candidates.push({
