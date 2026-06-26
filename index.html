@@ -461,126 +461,152 @@ function lensType(tr){
 }
 
 // ============================================================
-// MAIN ENGINE: select best projectors
+// MAIN ENGINE — fiel à planilha PixelSAV (fórmulas extraídas do .xltx)
+// Fórmulas originais:
+//   projW = distância / TR
+//   projH = projW × (rowsProp/colsProp)
+//   qtdW  = CEILING(totalW / projW)
+//   qtdH  = CEILING(totalH / projH)
+//   blend = ROUND(qtd × (1 + blendPct))
+//   total = blendW × blendH
+//   lux   = (lm × gain) / (projW × projH)
 // ============================================================
 function calculate(){
   const areaInfo=calcArea();
   if(!areaInfo.area||areaInfo.area<=0){alert('Preencha as dimensões da superfície!');return;}
 
-  const env=document.getElementById('light-env').value;
   const gainSel=document.getElementById('gain-sel').value;
   const gain=gainSel==='custom'?parseFloat(document.getElementById('gain-val').value)||0.7:parseFloat(gainSel);
-  const blendPct=parseInt(document.getElementById('blend').value)/100; // ex: 0.20
+  const blendPct=parseInt(document.getElementById('blend').value)/100;
   const distAvail=parseFloat(document.getElementById('dist').value)||0;
   const isExternal=!distAvail||distAvail<=0;
 
-  // LUX MÍNIMO GARANTIDO: nunca abaixo de 100
-  const lux=Math.max(100, LUX_MAP[env]||100);
+  // Proporção nativa por resolução
+  function getProp(res){
+    const m={'1920x1080':[16,9],'1920x1200':[16,10],'3840x2160':[16,9],'4096x2160':[256,135],'2560x1600':[16,10],'1280x800':[16,10]};
+    return m[res]||[16,9];
+  }
 
-  // Lumens brutos necessários para cobrir a área com o lux alvo,
-  // descontando a reflectância da superfície (gain)
-  const lumensNeeded=lux*areaInfo.area/gain;
+  // Calcula grid para uma superfície dada uma distância de instalação
+  function calcGrid(sw, sh, dist, tr, lm, gain, blendPct, resW, propW, propH){
+    if(!dist||dist<=0||!tr||tr<=0) return null;
+    const projW = dist / tr;
+    const projH = projW * (propH / propW);
+    const area  = projW * projH;
+    const lux   = Math.round((lm * gain) / area);
+    if(lux < 100) return null; // abaixo do mínimo de 100 lux
+    const qtdW     = Math.ceil(sw / projW);
+    const qtdH     = Math.ceil(sh / projH);
+    const blendW   = Math.round(qtdW * (1 + blendPct));
+    const blendH   = Math.round(qtdH * (1 + blendPct));
+    const total    = blendW * blendH;
+    const throwDist = parseFloat((tr * projW).toFixed(1)); // = dist (confirmação)
+    const cmPx     = ((projW * 100) / resW).toFixed(1);
+    let distStatus = 'ok';
+    if(distAvail>0 && dist>distAvail) distStatus='warn';
+    return { projW, projH, area, lux, qtdW, qtdH, blendW, blendH, total, throwDist, cmPx, distStatus };
+  }
 
   const candidates=[];
 
   CATALOG.forEach(p=>{
     const[resW]=p.res.split('x').map(Number);
+    const[propW,propH]=getProp(p.res);
 
-    // ── SALA IMERSIVA: calcula por superfície ─────────────────
+    // Para área externa (sem distância definida): tenta várias distâncias
+    // e escolhe a que entrega melhor resultado
+    const distList = isExternal
+      ? [5,8,10,15,20,30,50,80,100]   // testa múltiplas distâncias
+      : [distAvail];                    // usa a distância informada
+
+    // ── SALA IMERSIVA ─────────────────────────────────────────
     if(surf==='sala' && areaInfo.surfaces){
-      let qtyTotal=0, maxThrow=0, minLux=Infinity;
-      const breakdown=[];
+      let bestResult=null, bestScore=-1;
 
-      for(const s of areaInfo.surfaces){
-        // Lumens necessários para esta superfície
-        const lmNeeded=lux*s.area/gain;
-        const qtyLm=Math.ceil(lmNeeded/p.lm);
-        // Grid para esta superfície
-        const ratio=s.w/(s.h||1);
-        const cols=Math.max(1,Math.round(Math.sqrt(qtyLm*ratio)));
-        const rows=Math.max(1,Math.ceil(qtyLm/cols));
-        const qtyGrid=cols*rows;
-        const projW=s.w/cols;
-        const throwNeeded=p.tr*projW;
-        const junctions=(cols-1)+(rows-1);
-        const blendExtra=junctions>0?Math.ceil(junctions*blendPct):0;
-        const qtyFinal=qtyGrid+blendExtra;
-        const luxSurf=Math.round((p.lm*qtyGrid*gain)/s.area);
-        qtyTotal+=qtyFinal;
-        if(throwNeeded>maxThrow) maxThrow=throwNeeded;
-        if(luxSurf<minLux) minLux=luxSurf;
-        breakdown.push({nome:s.nome,qty:qtyFinal,cols,rows,throwNeeded:throwNeeded.toFixed(1),lux:luxSurf});
+      for(const dist of distList){
+        let qtyTotal=0, maxThrow=0, minLux=Infinity;
+        const breakdown=[];
+        let ok=true;
+
+        for(const s of areaInfo.surfaces){
+          // Distância específica para cada tipo de superfície na sala
+          // Paredes: dist disponível (projetor na parede oposta)
+          // Chão/Teto: pé direito como limite máximo
+          const distSurf = (s.nome.includes('Chão')||s.nome.includes('Teto'))
+            ? Math.min(dist, areaInfo.roomH)
+            : dist;
+
+          const g=calcGrid(s.w, s.h, distSurf, p.tr, p.lm, gain, blendPct, resW, propW, propH);
+          if(!g){ ok=false; break; }
+
+          qtyTotal+=g.total;
+          if(distSurf>maxThrow) maxThrow=distSurf;
+          if(g.lux<minLux) minLux=g.lux;
+          breakdown.push({
+            nome:s.nome, qty:g.total,
+            cols:g.blendW, rows:g.blendH,
+            throwNeeded:distSurf.toFixed(1),
+            lux:g.lux,
+            projW:g.projW.toFixed(1),
+            projH:g.projH.toFixed(1)
+          });
+        }
+
+        if(!ok||minLux<100) continue;
+
+        // Score: prefere menos projetores com mais lux
+        const score=(minLux>=200?30:15) + Math.max(0,60-qtyTotal) + p.tier*3;
+        if(score>bestScore){ bestScore=score; bestResult={qtyTotal,maxThrow,minLux,breakdown}; }
       }
 
-      if(minLux<100) return; // alguma superfície abaixo de 100 lux
+      if(!bestResult) return;
 
-      // Filtro distância pelo maior throw necessário
-      let distOk=true, distStatus='ok';
-      if(distAvail>0){
-        if(maxThrow>distAvail*1.2){ distOk=false; }
-        else if(maxThrow>distAvail){ distStatus='warn'; }
-      }
-      if(!distOk) return;
-
-      const projWavg=(areaInfo.roomW/2);
-      const cmPx=((projWavg*100)/resW).toFixed(1);
+      const {qtyTotal,maxThrow,minLux,breakdown}=bestResult;
+      const cmPx=((areaInfo.roomW/p.tr*100)/resW).toFixed(1);
+      const distStatus=isExternal?'ok':(maxThrow>distAvail?'warn':'ok');
 
       candidates.push({
         ...p,
-        qty:qtyTotal,
-        qtyGrid:qtyTotal,
-        cols:2, rows:Math.ceil(qtyTotal/8),
-        projW:projWavg.toFixed(2),
+        qty:qtyTotal, qtyGrid:qtyTotal,
+        cols:2, rows:2,
+        projW:(areaInfo.roomW/2).toFixed(2),
         projH:(areaInfo.roomH/2).toFixed(2),
-        throwNeeded:maxThrow.toFixed(1),
-        luxOut:minLux,
-        cmPx,
+        throwNeeded:isExternal?maxThrow.toFixed(1):distAvail.toFixed(1),
+        luxOut:minLux, cmPx,
         totalLm:p.lm*qtyTotal,
-        distStatus,
-        isExternal,
-        breakdown, // detalhamento por superfície
+        distStatus, isExternal, breakdown,
         score:0
       });
       return;
     }
 
-    // ── OUTRAS SUPERFÍCIES: cálculo padrão ───────────────────
-    const qtyLm=Math.ceil(lumensNeeded/p.lm);
-    const ratio=areaInfo.totalW/(areaInfo.totalH||areaInfo.totalW||1);
-    const cols=Math.max(1,Math.round(Math.sqrt(qtyLm*ratio)));
-    const rows=Math.max(1,Math.ceil(qtyLm/cols));
-    const qtyGrid=cols*rows;
-    const projW=areaInfo.totalW/cols;
-    const projH=areaInfo.totalH/(rows||1);
-    const throwNeeded=p.tr*projW;
+    // ── OUTRAS SUPERFÍCIES ────────────────────────────────────
+    let bestResult=null, bestScore=-1;
 
-    let distOk=true, distStatus='ok';
-    if(distAvail>0){
-      if(throwNeeded>distAvail*1.2){ distOk=false; }
-      else if(throwNeeded>distAvail){ distStatus='warn'; }
+    for(const dist of distList){
+      const g=calcGrid(
+        areaInfo.totalW,
+        areaInfo.totalH||areaInfo.totalW,
+        dist, p.tr, p.lm, gain, blendPct, resW, propW, propH
+      );
+      if(!g) continue;
+      const score=(g.lux>=200?30:15)+Math.max(0,60-g.total)+p.tier*3;
+      if(score>bestScore){ bestScore=score; bestResult={g,dist}; }
     }
-    if(!distOk) return;
 
-    const junctions=(cols-1)+(rows-1);
-    const blendExtra=junctions>0?Math.ceil(junctions*blendPct):0;
-    const qtyFinal=qtyGrid+blendExtra;
-    const luxOut=Math.round((p.lm*qtyGrid*gain)/areaInfo.area);
-    if(luxOut<100) return;
-
-    const cmPx=((projW*100)/resW).toFixed(1);
+    if(!bestResult) return;
+    const {g,dist}=bestResult;
 
     candidates.push({
       ...p,
-      qty:qtyFinal,
-      qtyGrid,
-      cols, rows,
-      projW:projW.toFixed(2),
-      projH:projH.toFixed(2),
-      throwNeeded:throwNeeded.toFixed(1),
-      luxOut,
-      cmPx,
-      totalLm:p.lm*qtyFinal,
-      distStatus,
+      qty:g.total, qtyGrid:g.total,
+      cols:g.blendW, rows:g.blendH,
+      projW:g.projW.toFixed(2),
+      projH:g.projH.toFixed(2),
+      throwNeeded:dist.toFixed(1),
+      luxOut:g.lux, cmPx:g.cmPx,
+      totalLm:p.lm*g.total,
+      distStatus:isExternal?'ok':g.distStatus,
       isExternal,
       score:0
     });
