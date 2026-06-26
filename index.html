@@ -627,8 +627,6 @@ function calculate(){
     s += c.tier*5;
     // Preferir laser
     if(c.light.includes('Laser')&&!c.light.includes('Lamp')) s+=10;
-    // Distância ok
-    if(c.distStatus==='ok') s+=8;
     // Lumens maiores = mais margem
     s += Math.min(c.lm/5000, 10);
     c.score=s;
@@ -652,7 +650,7 @@ function calculate(){
   lastArea=areaInfo;
 
   // Render
-  renderResults(lastRes,areaInfo,lux,env,lumensNeeded,isExternal);
+  renderResults(lastRes,areaInfo);
   renderCroqui(lastRes,areaInfo);
   document.getElementById('empty').style.display='none';
   document.getElementById('results').style.display='block';
@@ -662,45 +660,37 @@ function calculate(){
 // ============================================================
 // RENDER RESULTS
 // ============================================================
-function renderResults(res,area,lux,env,lumNeeded,isExternal){
+function renderResults(res,area){
   const colors=['c1','c2','c3'];
   const ranks=['🥇 Melhor Opção','🥈 Opção 2','🥉 Opção 3'];
+  const env=document.getElementById('light-env').value;
 
   // Summary box
   document.getElementById('summary-box').innerHTML=`
     <div><span style="color:var(--muted);font-size:10px">AMBIENTE</span><br><strong>${ENV_LABELS[env]}</strong></div>
-    <div><span style="color:var(--muted);font-size:10px">LUX ALVO</span><br><strong>${lux} lux</strong></div>
+    <div><span style="color:var(--muted);font-size:10px">LUX MÍNIMO</span><br><strong>100 lux</strong></div>
     <div><span style="color:var(--muted);font-size:10px">ÁREA TOTAL</span><br><strong>${area.area.toFixed(1)} m²</strong></div>
-    <div><span style="color:var(--muted);font-size:10px">LUMENS NECESSÁRIOS</span><br><strong>${Math.round(lumNeeded).toLocaleString('pt-BR')} lm</strong></div>
     <div><span style="color:var(--muted);font-size:10px">SUPERFÍCIE</span><br><strong>${area.label}</strong></div>
   `;
 
-  // Warn if external
-  const wb=document.getElementById('warn-box');
-  if(isExternal){
-    wb.style.display='block';
-    wb.innerHTML='⚠️ <strong>Área externa sem distância definida:</strong> a distância mínima necessária está indicada em cada opção abaixo. Considere a estrutura de posicionamento dos projetores.';
-  } else { wb.style.display='none'; }
+  document.getElementById('warn-box').style.display='none';
 
   // Cards
   const grid=document.getElementById('res-grid');
   grid.innerHTML='';
   res.forEach((r,i)=>{
-    const distInfo=isExternal
-      ?`<div class="st"><span class="sk">Dist. mínima necessária</span><span class="sv">${r.throwNeeded}m <span class="tag twarn">⚠ Externo</span></span></div>`
-      :`<div class="st"><span class="sk">Distância throw</span><span class="sv">${r.throwNeeded}m <span class="tag ${r.distStatus==='ok'?'tok':'twarn'}">${r.distStatus==='ok'?'OK':'Verificar'}</span></span></div>`;
     grid.innerHTML+=`
       <div class="rc ${colors[i]}">
         <div class="rc-rank">${ranks[i]}</div>
         <div class="rc-model">${r.brand} ${r.model}</div>
         <div class="rc-brand">${r.tech} · ${r.light}</div>
-        <div class="st" style="margin-top:8px"><span class="sk">Altura abertura</span><span class="sv">${r.projH}m → proj ${r.projW}m larg</span></div>
         <div class="rc-big">${r.qty}</div>
         <div class="rc-unit">projetor${r.qty>1?'es':''}</div>
         <div class="st"><span class="sk">Lumens cada</span><span class="sv">${r.lm.toLocaleString('pt-BR')} lm</span></div>
         <div class="st"><span class="sk">Total sistema</span><span class="sv">${r.totalLm.toLocaleString('pt-BR')} lm</span></div>
         <div class="st"><span class="sk">Lux na superfície</span><span class="sv">${r.luxOut} lux ${r.luxOut>=200?'<span class="tag" style="background:rgba(168,85,247,.2);color:#c084fc">⭐ Top</span>':r.luxOut>=100?'<span class="tag tok">✓ OK</span>':'<span class="tag terr">✗ Baixo</span>'}</span></div>
-        ${distInfo}
+        <div class="st"><span class="sk">Altura abertura</span><span class="sv">${r.projH}m → ${r.projW}m largura</span></div>
+        <div class="st"><span class="sk">Throw (distância)</span><span class="sv">${r.throwMin}m – ${r.throwMax}m</span></div>
         <div class="st"><span class="sk">Tipo de lente</span><span class="sv">${lensType(r.tr)}</span></div>
         <div class="st"><span class="sk">Grid</span><span class="sv">${r.cols}×${r.rows}</span></div>
         <div class="st"><span class="sk">Resolução</span><span class="sv">${r.res}</span></div>
@@ -713,9 +703,6 @@ function renderResults(res,area,lux,env,lumNeeded,isExternal){
   const colors2=['var(--c1)','var(--c2)','var(--c3)'];
   tbody.innerHTML='';
   res.forEach((r,i)=>{
-    const dist=isExternal?`${r.throwNeeded}m (mín)`:r.throwNeeded+'m';
-    const status=isExternal?'<span class="tag twarn">Externo</span>':
-      r.distStatus==='ok'?'<span class="tag tok">✓ OK</span>':'<span class="tag twarn">⚠ Verificar</span>';
     tbody.innerHTML+=`<tr>
       <td><strong style="color:${colors2[i]}">${i+1}º</strong></td>
       <td><strong>${r.brand}</strong><br><span style="color:var(--muted);font-size:10px">${r.model}</span></td>
@@ -723,15 +710,16 @@ function renderResults(res,area,lux,env,lumNeeded,isExternal){
       <td><strong style="font-size:16px;color:${colors2[i]}">${r.qty}</strong></td>
       <td>${r.totalLm.toLocaleString('pt-BR')}</td>
       <td>${r.luxOut} ${r.luxOut>=200?'<span class="tag" style="background:rgba(168,85,247,.2);color:#c084fc">⭐</span>':r.luxOut>=100?'<span class="tag tok">✓</span>':'<span class="tag terr">✗</span>'}</td>
-      <td>${dist} ${status}</td>
-      <td>${lensType(r.tr)} (${r.tr}:1)</td>
+      <td>${r.projH}m</td>
+      <td>${r.projW}m</td>
+      <td>${r.throwMin}–${r.throwMax}m</td>
       <td>${r.cmPx}</td>
       <td>${r.cols}×${r.rows}</td>
       <td>${r.light}</td>
     </tr>`;
   });
 
-  document.getElementById('res-title').textContent=`Melhores projetores · ${area.label} · ${lux} lux`;
+  document.getElementById('res-title').textContent=`Melhores projetores · ${area.label}`;
 }
 
 // ============================================================
