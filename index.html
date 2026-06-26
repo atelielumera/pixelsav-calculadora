@@ -462,19 +462,15 @@ function lensType(tr){
 
 // ============================================================
 // MAIN ENGINE — lógica exata da planilha PixelSAV
-// Validada pela transcrição do vídeo e planilha .xltx
+// Cada projetor tem specs diferentes → quantidade diferente
 //
-// COMO FUNCIONA:
-//   Para cada projetor do catálogo, testa múltiplas "alturas de abertura"
-//   (quantas fileiras de projetores cobrem a superfície).
-//   A melhor combinação de lux ≥100 com menos projetores vence.
-//
-//   projH = altura de abertura (metros)
-//   projW = projH × (cols / rows)       ← proporção nativa do projetor
-//   lux   = lumens / (projW × projH)    ← sem gain, igual à planilha
-//   throw = TR × projW                  ← distância de instalação
+//   projH = totalH / nFileiras   (começa com 1 fileira, aumenta se lux < 100)
+//   projW = projH × (cols / rows)
+//   lux   = lumens / (projW × projH)
+//   throw = TR × projW
 //   qtdW  = CEILING(totalW / projW)
-//   blendW = ROUND(qtdW × (1 + blend%)) ← fórmula exata do .xltx
+//   blendW = ROUND(qtdW × (1 + blend%))
+//   blendH = ROUND(nFileiras × (1 + blend%))
 //   total  = blendW × blendH
 // ============================================================
 function calculate(){
@@ -483,7 +479,6 @@ function calculate(){
 
   const blendPct=parseInt(document.getElementById('blend').value)/100;
 
-  // Proporção nativa por resolução
   function getProp(res){
     const m={
       '1920x1080':[16,9],'1920x1200':[16,10],
@@ -494,43 +489,28 @@ function calculate(){
     return m[res]||[16,9];
   }
 
-  // NÚCLEO — fórmulas exatas da planilha
-  function calcSurface(totalW, totalH, altH, lm, tr, blendPct, resW, propCols, propRows){
-    if(!altH||altH<=0) return null;
-    const projH = altH;
-    const projW = projH * (propCols / propRows);
-    const area  = projW * projH;
-    const lux   = Math.round(lm / area);
-    if(lux < 100) return null;
-    const throwRef = parseFloat((tr * projW).toFixed(2));
-    const throwMin = parseFloat((tr * 0.85 * projW).toFixed(2));
-    const throwMax = parseFloat((tr * 1.35 * projW).toFixed(2));
-    const qtdW  = Math.ceil(totalW / projW);
-    const qtdH  = Math.ceil(totalH / projH);
-    const blendW = Math.round(qtdW * (1 + blendPct));
-    const blendH = Math.round(qtdH * (1 + blendPct));
-    const total  = blendW * blendH;
-    const cmPx   = ((projW * 100) / resW).toFixed(2);
-    return { projH, projW, area, lux, throwRef, throwMin, throwMax,
-             qtdW, qtdH, blendW, blendH, total, cmPx };
-  }
-
-  // Gera lista de alturas candidatas para uma superfície
-  // Testa 1, 2, 3, 4, 6 fileiras de projetores
-  function getAlturas(totalH){
-    const alts=new Set();
-    [1,2,3,4,6,8].forEach(n=>{
-      const a=parseFloat((totalH/n).toFixed(2));
-      if(a>=0.3) alts.add(a);
-    });
-    return [...alts].sort((a,b)=>a-b);
-  }
-
-  // Score: prefere mais lux (até 200 lux ideal) com menos projetores
-  function score(lux, total, tier){
-    const luxScore = lux>=200 ? 40 : lux>=150 ? 25 : lux>=100 ? 10 : 0;
-    const qtyScore = Math.max(0, 60 - total * 1.2);
-    return luxScore + qtyScore + tier*3;
+  // Calcula o melhor resultado para UM projetor em UMA superfície
+  // Começa com 1 fileira, aumenta até atingir 100 lux mínimo
+  function calcBest(totalW, totalH, lm, tr, blendPct, resW, propCols, propRows){
+    for(let nF=1; nF<=8; nF++){
+      const projH = totalH / nF;
+      const projW = projH * (propCols / propRows);
+      const area  = projW * projH;
+      const lux   = Math.round(lm / area);
+      if(lux < 100) continue;
+      const throwRef = parseFloat((tr * projW).toFixed(1));
+      const throwMin = parseFloat((tr * 0.85 * projW).toFixed(1));
+      const throwMax = parseFloat((tr * 1.35 * projW).toFixed(1));
+      const qtdW    = Math.ceil(totalW / projW);
+      const blendW  = Math.round(qtdW * (1 + blendPct));
+      const blendH  = Math.round(nF  * (1 + blendPct));
+      const total   = blendW * blendH;
+      const cmPx    = ((projW * 100) / resW).toFixed(2);
+      return { projH:parseFloat(projH.toFixed(2)), projW:parseFloat(projW.toFixed(2)),
+               area, lux, throwRef, throwMin, throwMax,
+               qtdW, nF, blendW, blendH, total, cmPx };
+    }
+    return null; // não atingiu 100 lux nem com 8 fileiras
   }
 
   const candidates=[];
@@ -541,46 +521,33 @@ function calculate(){
 
     // ── SALA IMERSIVA ─────────────────────────────────────────
     if(surf==='sala' && areaInfo.surfaces){
-      let bestResult=null, bestScore=-Infinity;
+      let qtyTotal=0, minLux=Infinity, maxThrow=0;
+      const breakdown=[];
+      let ok=true;
 
-      for(const altH of getAlturas(areaInfo.roomH)){
-        let qtyTotal=0, minLux=Infinity, maxThrow=0;
-        const breakdown=[];
-        let ok=true;
-
-        for(const s of areaInfo.surfaces){
-          // Chão/Teto: altura de abertura limitada pela menor dimensão da superfície
-          const useAlt=(s.nome.includes('Chão')||s.nome.includes('Teto'))
-            ? Math.min(altH, Math.min(s.w,s.h))
-            : altH;
-          const g=calcSurface(s.w, s.h, useAlt, p.lm, p.tr, blendPct, resW, propCols, propRows);
-          if(!g){ ok=false; break; }
-          qtyTotal+=g.total;
-          if(g.lux<minLux) minLux=g.lux;
-          if(g.throwRef>maxThrow) maxThrow=g.throwRef;
-          breakdown.push({
-            nome:s.nome, qty:g.total,
-            cols:g.blendW, rows:g.blendH,
-            projW:g.projW.toFixed(1), projH:g.projH.toFixed(1),
-            lux:g.lux, throwMin:g.throwMin, throwMax:g.throwMax, throwRef:g.throwRef
-          });
-        }
-        if(!ok||minLux<100) continue;
-        const sc=score(minLux,qtyTotal,p.tier);
-        if(sc>bestScore){ bestScore=sc; bestResult={qtyTotal,minLux,maxThrow,breakdown,altH}; }
+      for(const s of areaInfo.surfaces){
+        const g=calcBest(s.w, s.h, p.lm, p.tr, blendPct, resW, propCols, propRows);
+        if(!g){ ok=false; break; }
+        qtyTotal+=g.total;
+        if(g.lux<minLux) minLux=g.lux;
+        if(g.throwRef>maxThrow) maxThrow=g.throwRef;
+        breakdown.push({
+          nome:s.nome, qty:g.total,
+          cols:g.blendW, rows:g.blendH,
+          projW:g.projW.toFixed(1), projH:g.projH.toFixed(1),
+          lux:g.lux, throwMin:g.throwMin, throwMax:g.throwMax
+        });
       }
-      if(!bestResult) return;
+      if(!ok||minLux<100) return;
 
-      const {qtyTotal,minLux,maxThrow,breakdown,altH}=bestResult;
-      const gRef=calcSurface(areaInfo.roomW,areaInfo.roomH,altH,p.lm,p.tr,blendPct,resW,propCols,propRows);
+      const gRef=calcBest(areaInfo.roomW,areaInfo.roomH,p.lm,p.tr,blendPct,resW,propCols,propRows)||{projW:'—',projH:'—',throwMin:0,throwMax:0,throwRef:0,cmPx:'—',blendW:2,blendH:2};
       candidates.push({
         ...p, qty:qtyTotal, qtyGrid:qtyTotal,
-        projW:gRef?gRef.projW.toFixed(2):'—',
-        projH:gRef?gRef.projH.toFixed(2):altH.toFixed(2),
-        throwMin:gRef?gRef.throwMin:0,
-        throwMax:gRef?gRef.throwMax:0,
-        throwNeeded:gRef?gRef.throwRef.toFixed(1):'—',
-        luxOut:minLux, cmPx:gRef?gRef.cmPx:'—',
+        cols:gRef.blendW, rows:gRef.blendH,
+        projW:String(gRef.projW), projH:String(gRef.projH),
+        throwMin:gRef.throwMin, throwMax:gRef.throwMax,
+        throwNeeded:String(gRef.throwRef),
+        luxOut:minLux, cmPx:gRef.cmPx,
         totalLm:p.lm*qtyTotal, breakdown, score:0
       });
       return;
@@ -588,23 +555,15 @@ function calculate(){
 
     // ── OUTRAS SUPERFÍCIES ────────────────────────────────────
     const totalW=areaInfo.totalW, totalH=areaInfo.totalH||areaInfo.totalW;
-    let bestResult=null, bestScore=-Infinity;
-
-    for(const altH of getAlturas(totalH)){
-      const g=calcSurface(totalW, totalH, altH, p.lm, p.tr, blendPct, resW, propCols, propRows);
-      if(!g) continue;
-      const sc=score(g.lux, g.total, p.tier);
-      if(sc>bestScore){ bestScore=sc; bestResult={g,altH}; }
-    }
-    if(!bestResult) return;
-    const {g,altH}=bestResult;
+    const g=calcBest(totalW, totalH, p.lm, p.tr, blendPct, resW, propCols, propRows);
+    if(!g) return;
 
     candidates.push({
       ...p, qty:g.total, qtyGrid:g.total,
       cols:g.blendW, rows:g.blendH,
-      projW:g.projW.toFixed(2), projH:g.projH.toFixed(2),
+      projW:String(g.projW), projH:String(g.projH),
       throwMin:g.throwMin, throwMax:g.throwMax,
-      throwNeeded:g.throwRef.toFixed(1),
+      throwNeeded:String(g.throwRef),
       luxOut:g.lux, cmPx:g.cmPx,
       totalLm:p.lm*g.total, score:0
     });
@@ -634,16 +593,38 @@ function calculate(){
 
   candidates.sort((a,b)=>b.score-a.score);
 
-  // Top 3 com variedade (sem repetir o mesmo modelo)
-  const chosen=[], usedIds=new Set();
-  for(const c of candidates){
-    if(chosen.length>=3) break;
-    if(!usedIds.has(c.id)){ chosen.push(c); usedIds.add(c.id); }
+  // Seleciona top 3 com diversidade:
+  // 1. Melhor score geral (potente)
+  // 2. Sempre inclui pelo menos 1 Optoma se disponível
+  // 3. Varia fabricante quando possível
+  candidates.sort((a,b)=>b.score-a.score);
+
+  const chosen=[];
+  const usedBrands=new Set();
+  const usedIds=new Set();
+
+  // 1ª opção: melhor score geral
+  if(candidates.length>0){
+    chosen.push(candidates[0]);
+    usedIds.add(candidates[0].id);
+    usedBrands.add(candidates[0].brand);
   }
-  // Se não chegou a 3, completa sem restrição
+
+  // Garante Optoma se não entrou ainda
+  const optoma=candidates.find(c=>c.brand==='Optoma'&&!usedIds.has(c.id));
+  if(optoma&&chosen.length<3){
+    chosen.push(optoma);
+    usedIds.add(optoma.id);
+    usedBrands.add('Optoma');
+  }
+
+  // Completa com melhor de fabricante diferente
   for(const c of candidates){
     if(chosen.length>=3) break;
-    if(!chosen.includes(c)) chosen.push(c);
+    if(!usedIds.has(c.id)){
+      chosen.push(c);
+      usedIds.add(c.id);
+    }
   }
 
   lastRes=chosen.slice(0,3);
